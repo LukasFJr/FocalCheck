@@ -26,9 +26,9 @@
       color: var(--fg); font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
       -webkit-font-smoothing: antialiased;
     }
-    .app { max-width: 900px; margin: 0 auto; padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom); }
+    .app { max-width: 900px; margin: 0 auto; padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom); transition: max-width .2s ease; }
     header {
-      display:flex; align-items:center; gap:10px; padding:12px 6px 8px; position: sticky; top: 0; z-index: 20;
+      display:flex; align-items:center; gap:10px; padding:12px 6px 8px; position: sticky; top: 0; z-index: 30;
       background: linear-gradient(180deg, rgba(15,17,21,.95), rgba(15,17,21,.6) 70%, rgba(15,17,21,0));
       backdrop-filter: blur(8px);
     }
@@ -38,12 +38,10 @@
     .card { background: linear-gradient(180deg, var(--card), var(--card-2)); border:1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
     .pad { padding: 14px; }
 
-    /* Camera frame */
     .frame-wrap { margin-top: 6px; }
     .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #0a0d12; overflow: hidden; border-radius: 16px; border:1px solid var(--border); }
     video { position:absolute; inset:0; width:100%; height:100%; object-fit: contain; background: #000; }
 
-    /* Overlays */
     .grid::before, .grid::after { content:""; position:absolute; inset:0; pointer-events:none; }
     .grid { position:absolute; inset:0; }
     .grid::before { background:
@@ -52,36 +50,30 @@
     }
     .grid::after { box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); border-radius: 16px; }
 
-    /* Darken outside the simulated rectangle using 4-slice background (perf-friendly) */
     .dim { position:absolute; inset:0; pointer-events:none; }
-    /* --w and --h are percentages of frame size representing the hole (sim rectangle) */
     .dim { 
       --w: 60%;
       --h: 60%;
       background:
-        /* top bar */    linear-gradient(var(--dim-alpha), var(--dim-alpha)) top left / 100% calc((100% - var(--h)) / 2) no-repeat,
-        /* bottom bar */ linear-gradient(var(--dim-alpha), var(--dim-alpha)) bottom left / 100% calc((100% - var(--h)) / 2) no-repeat,
-        /* left bar */   linear-gradient(var(--dim-alpha), var(--dim-alpha)) top left / calc((100% - var(--w)) / 2) var(--h) no-repeat,
-        /* right bar */  linear-gradient(var(--dim-alpha), var(--dim-alpha)) top right / calc((100% - var(--w)) / 2) var(--h) no-repeat;
+        linear-gradient(var(--dim-alpha), var(--dim-alpha)) top left / 100% calc((100% - var(--h)) / 2) no-repeat,
+        linear-gradient(var(--dim-alpha), var(--dim-alpha)) bottom left / 100% calc((100% - var(--h)) / 2) no-repeat,
+        linear-gradient(var(--dim-alpha), var(--dim-alpha)) top left / calc((100% - var(--w)) / 2) var(--h) no-repeat,
+        linear-gradient(var(--dim-alpha), var(--dim-alpha)) top right / calc((100% - var(--w)) / 2) var(--h) no-repeat;
     }
 
-    /* Rectangle container sized to the displayed video area (no letterbox mismatch) */
     .rect-wrap { position:absolute; top:50%; left:50%; transform: translate(-50%,-50%); pointer-events:none; }
 
-    /* Simulated rectangle */
     .sim-rect { position:absolute; top:50%; left:50%; width:100%; height:100%;
       transform: translate(-50%,-50%) scale(1);
       border: 2px solid var(--brand); border-radius: 12px;
-      /* removed massive box-shadow to avoid overdraw; use .dim to darken */
       will-change: transform;
       transition: transform 120ms ease, border-color 120ms ease;
     }
 
-    /* Controls */
     .controls { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 12px; }
     .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     label { font-size: 13px; color: var(--muted); }
-    input[type="number"], select, button, input[type="range"] { -webkit-tap-highlight-color: transparent; }
+    input[type="number"], select, button, input[type="range"], input[type="checkbox"] { -webkit-tap-highlight-color: transparent; }
     input[type="number"], select {
       background: #0f141d; color: var(--fg); border:1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 16px;
     }
@@ -103,13 +95,21 @@
     footer { margin: 18px 4px 8px; font-size: 12px; color: var(--muted); }
     .warn { color: var(--warning); }
 
-    /* Diagnostics panel */
     .diag { display:grid; gap:10px; grid-template-columns: 1fr; }
     .kv { display:flex; justify-content:space-between; gap:10px; background:#0f141d; border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
     .kv b { font-weight:600; }
     .log { background:#0a0f18; border:1px dashed var(--border); border-radius:10px; padding:10px; font-size:12px; max-height:160px; overflow:auto; }
     .ok { color: var(--ok); }
     .bad { color: var(--danger); }
+
+    .immersive .app { max-width: none; padding: 0; }
+    .immersive header, .immersive .controls, .immersive footer { display:none; }
+    .immersive .frame-wrap { margin:0; }
+    .immersive .frame { border-radius: 0; border: none; width: 100vw; height: 100vh; aspect-ratio: auto; }
+
+    .hud { position: fixed; top: env(safe-area-inset-top,8px); right: 8px; z-index: 40; display:flex; gap:8px; }
+    .hud .chip { background:#0b1220aa; border-color:#30415f; }
+    .hud .btn { padding:8px 12px; }
 
     @media (min-width: 700px) {
       .controls { grid-template-columns: 1fr 1fr; }
@@ -184,7 +184,16 @@
         </ul>
       </div>
 
-      <!-- DIAGNOSTICS / TESTS -->
+      <div class="span-2 pad card">
+        <div class="muted" style="margin-bottom:8px;">Mode plein écran paysage</div>
+        <div class="row">
+          <label class="row" style="gap:6px"><input type="checkbox" id="autoFS"/> Auto plein écran quand le téléphone est à l’horizontale</label>
+          <label class="row" style="gap:6px"><input type="checkbox" id="hidePortrait"/> Masquer l’aperçu en portrait (garder les contrôles)</label>
+          <button class="btn" id="goFS">Entrer en plein écran</button>
+          <button class="btn secondary" id="exitFS" disabled>Quitter</button>
+        </div>
+      </div>
+
       <div class="span-2 pad card">
         <div class="muted" style="margin-bottom:8px;">Diagnostics (tests intégrés)</div>
         <div class="diag" id="diag">
@@ -200,11 +209,27 @@
           </div>
         </div>
       </div>
+
+      <div class="span-2 pad card" id="permBanner" style="display:none">
+        <div class="muted" style="margin-bottom:8px;">Accès caméra requis</div>
+        <div style="margin-bottom:8px">La permission est nécessaire pour la prévisualisation. Si tu as refusé précédemment :
+          <ul style="margin:6px 0 0 18px; line-height:1.5">
+            <li>Appuie sur l’icône <b>caméra</b> dans la barre d’adresse et autorise l’accès.</li>
+            <li>Sur iOS : <b>Réglages → Safari → Caméra</b> → Autoriser.</li>
+          </ul>
+        </div>
+        <button class="btn" id="retryPerm">Réessayer</button>
+      </div>
     </section>
 
     <footer>
       Astuce : touche l’écran avec deux doigts pour basculer l’overlay (grille/rectangle).
     </footer>
+  </div>
+
+  <div class="hud" id="hud" style="display:none">
+    <button class="btn" id="exitImmersive">Quitter</button>
+    <div class="chip mono" id="hudInfo">—</div>
   </div>
 
   <script>
@@ -225,7 +250,16 @@
     const fovTargetOut = $('#fovTarget');
     const scaleOut = $('#scaleOut');
 
-    // Diagnostics nodes
+    const autoFS = $('#autoFS');
+    const hidePortrait = $('#hidePortrait');
+    const goFS = $('#goFS');
+    const exitFSBtn = $('#exitFS');
+    const hud = $('#hud');
+    const hudInfo = $('#hudInfo');
+
+    const permBanner = $('#permBanner');
+    const retryPerm = $('#retryPerm');
+
     const tSecure = $('#tSecure');
     const tMD = $('#tMD');
     const tPerm = $('#tPerm');
@@ -238,36 +272,63 @@
 
     const COMMON_EQS = [14, 18, 20, 24, 28, 35, 40, 50, 58, 70, 85, 105, 135, 200];
 
-    // Build chips
+    const SKEY = 'sf_settings_v1';
+    function saveSettings(){
+      const data = { baseEq: baseEq.value, targetEq: targetEq.value, aspect: aspectSel.value, autoFS: autoFS.checked, hidePortrait: hidePortrait.checked };
+      try { localStorage.setItem(SKEY, JSON.stringify(data)); } catch {}
+    }
+    function restoreSettings(){
+      try {
+        const s = JSON.parse(localStorage.getItem(SKEY) || '{}');
+        if (s.baseEq) baseEq.value = s.baseEq;
+        if (s.targetEq) { targetEq.value = s.targetEq; targetEqNum.value = s.targetEq; }
+        if (s.aspect) aspectSel.value = s.aspect;
+        if (typeof s.autoFS === 'boolean') autoFS.checked = s.autoFS;
+        if (typeof s.hidePortrait === 'boolean') hidePortrait.checked = s.hidePortrait;
+      } catch {}
+    }
+
     COMMON_EQS.forEach(v => {
       const b = document.createElement('button');
       b.className = 'chip';
       b.textContent = v + 'mm';
-      b.addEventListener('click', () => { targetEq.value = v; targetEqNum.value = v; updateSim(); });
+      b.addEventListener('click', () => { targetEq.value = v; targetEqNum.value = v; updateSim(); saveSettings(); });
       chips.appendChild(b);
     });
 
-    // Sync number <-> range
-    targetEq.addEventListener('input', () => { targetEqNum.value = targetEq.value; updateSim(); });
+    targetEq.addEventListener('input', () => { targetEqNum.value = targetEq.value; updateSim(); saveSettings(); });
     targetEqNum.addEventListener('input', () => {
       const v = clamp(parseFloat(targetEqNum.value) || 0, parseFloat(targetEq.min), parseFloat(targetEq.max));
-      targetEq.value = v; updateSim();
+      targetEq.value = v; updateSim(); saveSettings();
     });
-    baseEq.addEventListener('input', updateSim);
+    baseEq.addEventListener('input', () => { updateSim(); saveSettings(); });
 
-    // Aspect handling
-    aspectSel.addEventListener('change', () => { applyAspect(); layoutVideoOverlay(); updateSim(); });
+    aspectSel.addEventListener('change', () => { applyAspect(); layoutVideoOverlay(); updateSim(); saveSettings(); });
 
-    // Start/Stop camera on user gesture
     startBtn.addEventListener('click', startCamera);
     stopBtn.addEventListener('click', stopCamera);
     retryBtn.addEventListener('click', startCamera);
 
     runDiagBtn.addEventListener('click', runDiagnostics);
 
-    let stream;
+    autoFS.addEventListener('change', () => { saveSettings(); handleOrientation(true); });
+    hidePortrait.addEventListener('change', () => { saveSettings(); handleOrientation(true); });
+    goFS.addEventListener('click', () => enterFullscreen(frame));
+    $('#exitImmersive').addEventListener('click', () => { exitFullscreen(); disableImmersive(); });
+    exitFSBtn.addEventListener('click', () => { exitFullscreen(); disableImmersive(); });
 
-    // --- CAMERA START LOGIC with better error handling ---
+    retryPerm.addEventListener('click', () => { permBanner.style.display = 'none'; startCamera(); });
+
+    let stream;
+    let isImmersive = false;
+    let lastLandscape = null;
+
+    document.addEventListener('fullscreenchange', () => {
+      const active = !!document.fullscreenElement;
+      if (active) enableImmersive(); else disableImmersive();
+    });
+    video.addEventListener('webkitendfullscreen', () => disableImmersive());
+
     async function startCamera(){
       video.setAttribute('playsinline','');
       video.muted = true;
@@ -285,7 +346,6 @@
         return;
       }
       try {
-        // stop any prior stream
         if (stream) { stream.getTracks().forEach(t => t.stop()); }
 
         const constraintsList = [
@@ -299,7 +359,7 @@
           try {
             notify('Tentative getUserMedia avec contraintes: ' + json(c));
             stream = await navigator.mediaDevices.getUserMedia(c);
-            break; // success
+            break;
           } catch (e) {
             lastErr = e;
             notify('Échec tentative: ' + e.name + ' – ' + e.message, 'bad');
@@ -308,7 +368,7 @@
         if (!stream) throw lastErr || new Error('Impossible d\'obtenir le flux caméra');
 
         video.srcObject = stream;
-        await video.play();
+        try { await video.play(); } catch(e) { notify('Lecture vidéo bloquée: ' + (e && e.message ? e.message : e), 'bad'); }
         await waitForMetadata();
         applyAspect();
         layoutVideoOverlay();
@@ -319,7 +379,8 @@
         stopBtn.disabled = false;
 
         notify('Caméra démarrée ✅', 'ok');
-        runDiagnostics(false); // refresh cam count/perm state
+        runDiagnostics(false);
+        handleOrientation(true);
       } catch (err) {
         console.error(err);
         handleCameraError(err);
@@ -337,12 +398,14 @@
       startBtn.textContent = 'Activer la caméra';
       startBtn.disabled = false;
       stopBtn.disabled = true;
+      disableImmersive();
     }
 
     function waitForMetadata(){
       return new Promise(res => {
         if (video.readyState >= 1 && video.videoWidth) return res();
-        video.onloadedmetadata = () => res();
+        const onMeta = () => { video.removeEventListener('loadedmetadata', onMeta); res(); };
+        video.addEventListener('loadedmetadata', onMeta, { once: true });
       });
     }
 
@@ -351,93 +414,85 @@
       const opt = aspectSel.value;
       let ratio;
       if (opt === 'video') { ratio = vW / vH; }
-      else {
-        const [a,b] = opt.split('/').map(Number);
-        ratio = a / b;
-      }
+      else { const [a,b] = opt.split('/').map(Number); ratio = a / b; }
       frame.style.aspectRatio = ratio.toString();
-      video.style.objectFit = 'contain'; // avoid crop distortion; rectangle aligns via rectWrap sizing
+      video.style.objectFit = 'contain';
     }
 
-    // Size the rectWrap to the displayed video area (handles letter/pillar-boxing)
     function layoutVideoOverlay(){
-      const frameRect = frame.getBoundingClientRect();
-      const fw = frameRect.width, fh = frameRect.height;
+      const fr = frame.getBoundingClientRect();
+      const fw = fr.width, fh = fr.height;
       const vW = video.videoWidth || 16; const vH = video.videoHeight || 9;
       const vAsp = vW / vH;
       let dispW = fw, dispH = fw / vAsp;
-      if (dispH > fh) { // too tall, fit height instead
-        dispH = fh; dispW = fh * vAsp;
-      }
+      if (dispH > fh) { dispH = fh; dispW = fh * vAsp; }
       rectWrap.style.width = dispW + 'px';
       rectWrap.style.height = dispH + 'px';
     }
 
-    // Compute FOV for a given 35mm-equivalent focal length and chosen aspect ratio
     function fovFor(fEq){
-      // Base 35mm frame is 36x24mm (3:2). For custom aspect, we crop to fit within 36x24.
-      const asp = (function(){
-        const opt = aspectSel.value;
-        if (opt === 'video') {
-          const vW = video.videoWidth || 16; const vH = video.videoHeight || 9; return vW / vH;
-        }
-        const [a,b] = opt.split('/').map(Number); return a/b;
-      })();
-      let W = 36, H = 24; // 35mm full-frame bounds
+      const asp = (()=>{ const opt = aspectSel.value; if (opt === 'video') { const vW = video.videoWidth || 16; const vH = video.videoHeight || 9; return vW / vH; } const [a,b] = opt.split('/').map(Number); return a/b; })();
+      let W = 36, H = 24;
       if (W / H > asp) { W = H * asp; } else { H = W / asp; }
       const toDeg = r => (r * 180 / Math.PI);
-      const fovH = 2 * Math.atan(W / (2 * fEq));
-      const fovV = 2 * Math.atan(H / (2 * fEq));
-      return { h: toDeg(fovH), v: toDeg(fovV) };
+      return { h: toDeg(2 * Math.atan(W / (2 * fEq))), v: toDeg(2 * Math.atan(H / (2 * fEq))) };
     }
 
-    function updateSim(){
+    let simRAF = null;
+    function updateSim(){ if (simRAF) return; simRAF = requestAnimationFrame(_updateSimNow); }
+    function _updateSimNow(){
+      simRAF = null;
       const base = parseFloat(baseEq.value) || 24;
       const target = parseFloat(targetEq.value) || 35;
       const scale = clamp(base / target, 0.05, 8);
+
+      const fr = frame.getBoundingClientRect();
+      const rwRect = rectWrap.getBoundingClientRect();
+      const fw = fr.width, fh = fr.height;
+      const rw = rwRect.width, rh = rwRect.height;
+
       simRect.style.transform = `translate(-50%,-50%) scale(${scale})`;
       scaleOut.textContent = scale.toFixed(2) + '×';
       const fb = fovFor(base); const ft = fovFor(target);
       fovBaseOut.textContent = `${fb.h.toFixed(1)}° × ${fb.v.toFixed(1)}°`;
       fovTargetOut.textContent = `${ft.h.toFixed(1)}° × ${ft.v.toFixed(1)}°`;
 
-      // update dim outside-hole size based on scaled rectangle within rectWrap
-      const frameRect = frame.getBoundingClientRect();
-      const fw = frameRect.width, fh = frameRect.height;
-      const rw = rectWrap.getBoundingClientRect().width;
-      const rh = rectWrap.getBoundingClientRect().height;
       const holeW = clamp(rw * scale, 0, fw);
       const holeH = clamp(rh * scale, 0, fh);
       dim.style.setProperty('--w', (holeW / fw * 100).toFixed(4) + '%');
       dim.style.setProperty('--h', (holeH / fh * 100).toFixed(4) + '%');
+
+      hudInfo.textContent = `${target.toFixed(0)}mm · ${aspectSel.value}`;
     }
 
     function clamp(v, lo, hi){ return Math.min(Math.max(v, lo), hi); }
 
-    // Two-finger tap toggles overlays
     window.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) {
         const g = document.getElementById('grid');
         const visible = getComputedStyle(g).display !== 'none';
         g.style.display = visible ? 'none' : 'block';
-        // rectangle and dim remain
       }
     }, { passive: true });
 
-    // Recompute on resize / rotate
-    window.addEventListener('resize', () => { applyAspect(); layoutVideoOverlay(); updateSim(); });
+    window.addEventListener('resize', () => { applyAspect(); layoutVideoOverlay(); updateSim(); handleOrientation(); });
+    window.addEventListener('orientationchange', () => { setTimeout(() => { applyAspect(); layoutVideoOverlay(); updateSim(); handleOrientation(); }, 50); });
 
-    // Stop camera when tab hidden / page unloading (battery/heat)
+    if ('ResizeObserver' in window) {
+      const ro = new ResizeObserver(() => { layoutVideoOverlay(); updateSim(); });
+      ro.observe(frame);
+    }
+
     document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); });
     window.addEventListener('pagehide', stopCamera);
 
-    // --- DIAGNOSTICS / TESTS ---
     async function runDiagnostics(log = true){
       try {
         setKV(tSecure, isSecure());
-        setKV(tMD, !!navigator.mediaDevices);
+        setKV(tMD, !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
         const perm = await getPermissionState();
         setKV(tPerm, perm || 'inconnu');
+        updatePermBanner(perm);
         const camCount = await countCameras();
         setKV(tCams, camCount >= 0 ? String(camCount) : '—');
         tUA.textContent = navigator.userAgent;
@@ -449,20 +504,21 @@
     }
 
     function setKV(node, val){
-      const ok = (val === true || val === 'granted' || (typeof val === 'number' && val > 0));
-      node.textContent = typeof val === 'boolean' ? (val? 'OK' : 'NON') : val;
-      node.className = ok ? 'ok' : 'bad';
+      node.classList.remove('ok','bad');
+      if (val === true || val === 'granted' || val === 'non pris en charge' || (typeof val === 'number' && val > 0)) node.classList.add('ok');
+      else if (val === false || val === 'denied') node.classList.add('bad');
+      node.textContent = typeof val === 'boolean' ? (val? 'OK' : 'NON') : (val ?? '—');
     }
 
     function isSecure(){
-      return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '::1';
     }
 
     async function getPermissionState(){
       try {
         if (!navigator.permissions || !navigator.permissions.query) return 'non pris en charge';
         const p = await navigator.permissions.query({ name: 'camera' });
-        return p.state; // 'granted' | 'denied' | 'prompt'
+        return p.state;
       } catch(e){
         return 'inconnu';
       }
@@ -473,9 +529,13 @@
         if (!navigator.mediaDevices?.enumerateDevices) return -1;
         const list = await navigator.mediaDevices.enumerateDevices();
         const cams = list.filter(d => d.kind === 'videoinput');
-        // iOS peut retourner 0 avant un premier getUserMedia: on tolère.
         return cams.length;
       } catch(e){ return -1; }
+    }
+
+    function updatePermBanner(state){
+      const show = (state === 'denied' || state === 'prompt');
+      permBanner.style.display = show ? 'block' : 'none';
     }
 
     function handleCameraError(err){
@@ -488,6 +548,7 @@
         hint = 'La page n\'est pas en HTTPS. Héberge via GitHub Pages (https) ou utilise localhost.';
       } else if (name === 'NotAllowedError' || /Permission denied/i.test(msg)) {
         hint = 'Permission refusée. Si tu as cliqué « Ne pas autoriser », re-clique sur l\'icône caméra dans la barre d\'adresse et autorise l\'appareil photo. Sur iOS : Réglages → Safari → Caméra → Autoriser.';
+        updatePermBanner('denied');
       } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
         hint = 'Aucune caméra détectée ou contrainte trop stricte. Essaie un autre ensemble de contraintes (bouton Réessayer) ou redémarre le navigateur.';
       } else if (name === 'SecurityError') {
@@ -501,7 +562,6 @@
       securePill.style.color = isSecure() ? 'var(--ok)' : 'var(--warning)';
     }
 
-    // Bounded, batched logs
     let logBuffer = [];
     let logRAF = null;
     function notify(s, cls){
@@ -521,21 +581,80 @@
         logEl.appendChild(el);
       }
       logBuffer = [];
-      // cap to last 200 entries
-      while (logEl.childNodes.length > 200) {
-        logEl.removeChild(logEl.firstChild);
-      }
+      while (logEl.childNodes.length > 200) { logEl.removeChild(logEl.firstChild); }
       logEl.scrollTop = logEl.scrollHeight;
     }
 
     function json(o){ try { return JSON.stringify(o); } catch{ return String(o); } }
 
-    // Kick initial UI
+    function isLandscape(){
+      const m = window.matchMedia('(orientation: landscape)');
+      return m.matches || (window.innerWidth > window.innerHeight);
+    }
+
+    async function enterFullscreen(el){
+      if (isImmersive) return;
+      try {
+        if (document.fullscreenEnabled && el.requestFullscreen && !document.fullscreenElement) {
+          await el.requestFullscreen();
+        } else {
+          enableImmersive();
+        }
+      } catch(e){
+        enableImmersive();
+      }
+    }
+    async function exitFullscreen(){
+      try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
+      disableImmersive();
+    }
+
+    function enableImmersive(){
+      if (isImmersive) return;
+      document.body.classList.add('immersive');
+      hud.style.display = 'flex';
+      exitFSBtn.disabled = false;
+      isImmersive = true;
+    }
+    function disableImmersive(){
+      if (!isImmersive) return;
+      document.body.classList.remove('immersive');
+      hud.style.display = 'none';
+      exitFSBtn.disabled = true;
+      isImmersive = false;
+    }
+
+    function handleOrientation(force = false){
+      const landscape = isLandscape();
+      const auto = autoFS.checked;
+      const hideP = hidePortrait.checked;
+
+      if (!force && lastLandscape === landscape) return;
+      lastLandscape = landscape;
+
+      if (auto && landscape) {
+        frame.style.display = '';
+        if (video.srcObject && video.paused) video.play();
+        enterFullscreen(frame);
+      } else {
+        if (isImmersive) exitFullscreen();
+        if (!landscape && hideP) {
+          frame.style.display = 'none';
+          if (!video.paused) video.pause();
+        } else {
+          frame.style.display = '';
+          if (video.srcObject && video.paused) video.play();
+        }
+      }
+    }
+
+    restoreSettings();
     updateSecurePill();
     applyAspect();
     layoutVideoOverlay();
     updateSim();
     runDiagnostics(false);
+    handleOrientation(true);
   </script>
 </body>
 </html>
