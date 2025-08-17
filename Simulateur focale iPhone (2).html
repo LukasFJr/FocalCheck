@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Simulateur de focale (équivalent 35mm)</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --fg: #e8eef9;
+      --muted: #a6b0c0;
+      --brand: #6ea8fe;
+      --accent: #9d7eff;
+      --ok: #3bceac;
+      --danger: #ff6b6b;
+      --card: #161a22;
+      --card-2: #1c2230;
+      --border: #222a38;
+      --warning: #ffd166;
+      --dim-alpha: rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: radial-gradient(1200px 800px at 60% -10%, #1b2230 0%, var(--bg) 60%);
+      color: var(--fg); font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      -webkit-font-smoothing: antialiased;
+    }
+    .app { max-width: 900px; margin: 0 auto; padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom); }
+    header {
+      display:flex; align-items:center; gap:10px; padding:12px 6px 8px; position: sticky; top: 0; z-index: 20;
+      background: linear-gradient(180deg, rgba(15,17,21,.95), rgba(15,17,21,.6) 70%, rgba(15,17,21,0));
+      backdrop-filter: blur(8px);
+    }
+    header h1 { font-size: 18px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+    header .pill { margin-left:auto; font-size:12px; color: var(--muted); }
+
+    .card { background: linear-gradient(180deg, var(--card), var(--card-2)); border:1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .pad { padding: 14px; }
+
+    /* Camera frame */
+    .frame-wrap { margin-top: 6px; }
+    .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #0a0d12; overflow: hidden; border-radius: 16px; border:1px solid var(--border); }
+    video { position:absolute; inset:0; width:100%; height:100%; object-fit: contain; background: #000; }
+
+    /* Overlays */
+    .grid::before, .grid::after { content:""; position:absolute; inset:0; pointer-events:none; }
+    .grid { position:absolute; inset:0; }
+    .grid::before { background:
+      linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / calc(100%/3) 100%,
+      linear-gradient(0deg, rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 100% calc(100%/3);
+    }
+    .grid::after { box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); border-radius: 16px; }
+
+    /* Darken outside the simulated rectangle using 4-slice background (perf-friendly) */
+    .dim { position:absolute; inset:0; pointer-events:none; }
+    /* --w and --h are percentages of frame size representing the hole (sim rectangle) */
+    .dim { 
+      --w: 60%;
+      --h: 60%;
+      background:
+        /* top bar */    linear-gradient(var(--dim-alpha), var(--dim-alpha)) top left / 100% calc((100% - var(--h)) / 2) no-repeat,
+        /* bottom bar */ linear-gradient(var(--dim-alpha), var(--dim-alpha)) bottom left / 100% calc((100% - var(--h)) / 2) no-repeat,
+        /* left bar */   linear-gradient(var(--dim-alpha), var(--dim-alpha)) top left / calc((100% - var(--w)) / 2) var(--h) no-repeat,
+        /* right bar */  linear-gradient(var(--dim-alpha), var(--dim-alpha)) top right / calc((100% - var(--w)) / 2) var(--h) no-repeat;
+    }
+
+    /* Rectangle container sized to the displayed video area (no letterbox mismatch) */
+    .rect-wrap { position:absolute; top:50%; left:50%; transform: translate(-50%,-50%); pointer-events:none; }
+
+    /* Simulated rectangle */
+    .sim-rect { position:absolute; top:50%; left:50%; width:100%; height:100%;
+      transform: translate(-50%,-50%) scale(1);
+      border: 2px solid var(--brand); border-radius: 12px;
+      /* removed massive box-shadow to avoid overdraw; use .dim to darken */
+      will-change: transform;
+      transition: transform 120ms ease, border-color 120ms ease;
+    }
+
+    /* Controls */
+    .controls { display: grid; gap: 12px; grid-template-columns: 1fr; margin-top: 12px; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    label { font-size: 13px; color: var(--muted); }
+    input[type="number"], select, button, input[type="range"] { -webkit-tap-highlight-color: transparent; }
+    input[type="number"], select {
+      background: #0f141d; color: var(--fg); border:1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 16px;
+    }
+    input[type="number"] { width: 90px; }
+    input[type="range"] { width: 100%; }
+
+    .btn { background: linear-gradient(180deg, #2a3448, #1e2636); border:1px solid var(--border); color: #dce7ff; border-radius: 12px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+    .btn:hover { filter: brightness(1.05); }
+    .btn.secondary { background: linear-gradient(180deg, #1e2636, #161c29); color: #c8d5f4; }
+
+    .chips { display:flex; gap:6px; flex-wrap:wrap; }
+    .chip { background:#121825; color:#cfe0ff; border:1px solid var(--border); border-radius: 999px; padding: 6px 10px; font-size: 13px; cursor:pointer; }
+
+    .muted { color: var(--muted); }
+    .kpi { display:flex; gap:10px; flex-wrap:wrap; }
+    .kpi .box { background:#0f141d; border:1px solid var(--border); border-radius:12px; padding: 10px 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    footer { margin: 18px 4px 8px; font-size: 12px; color: var(--muted); }
+    .warn { color: var(--warning); }
+
+    /* Diagnostics panel */
+    .diag { display:grid; gap:10px; grid-template-columns: 1fr; }
+    .kv { display:flex; justify-content:space-between; gap:10px; background:#0f141d; border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
+    .kv b { font-weight:600; }
+    .log { background:#0a0f18; border:1px dashed var(--border); border-radius:10px; padding:10px; font-size:12px; max-height:160px; overflow:auto; }
+    .ok { color: var(--ok); }
+    .bad { color: var(--danger); }
+
+    @media (min-width: 700px) {
+      .controls { grid-template-columns: 1fr 1fr; }
+      .controls .span-2 { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Simulateur de focale (équiv. 35mm)</h1>
+      <div class="pill" id="securePill">Vérification sécurité…</div>
+    </header>
+
+    <section class="frame-wrap">
+      <div class="frame card" id="frame">
+        <video id="video" playsinline muted autoplay></video>
+        <div class="grid" id="grid"></div>
+        <div class="dim" id="dim"></div>
+        <div class="rect-wrap" id="rectWrap">
+          <div class="sim-rect" id="simRect" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="row span-2">
+        <button class="btn" id="start">Activer la caméra</button>
+        <button class="btn secondary" id="stop" title="Couper la caméra" disabled>Stop</button>
+        <label class="row" style="gap:8px; margin-left:auto;">
+          Aspect visuel
+          <select id="aspect">
+            <option value="video">Auto (flux caméra)</option>
+            <option value="16/9">16:9</option>
+            <option value="4/3">4:3</option>
+            <option value="3/2">3:2</option>
+            <option value="1/1">1:1</option>
+            <option value="9/16">9:16 (vertical)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row">
+        <label>Focale de base (équiv. 35mm)
+          <input type="number" id="baseEq" value="24" min="5" max="200" step="0.5" />
+        </label>
+        <label>Focale simulée (équiv. 35mm)
+          <input type="number" id="targetEqNum" value="35" min="5" max="300" step="1" />
+        </label>
+      </div>
+
+      <div class="row span-2">
+        <input type="range" id="targetEq" min="5" max="300" step="1" value="35" />
+      </div>
+
+      <div class="row span-2">
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div class="row kpi span-2">
+        <div class="box"><div class="muted">Échelle (rect.)</div><div class="mono" id="scaleOut">1.00×</div></div>
+        <div class="box"><div class="muted">FOV h×v (base)</div><div class="mono" id="fovBase">—</div></div>
+        <div class="box"><div class="muted">FOV h×v (simulé)</div><div class="mono" id="fovTarget">—</div></div>
+      </div>
+
+      <div class="span-2 pad card">
+        <div class="muted" style="margin-bottom:8px;">Notes de précision</div>
+        <ul style="margin:0 0 0 18px; padding:0; line-height:1.5;">
+          <li>HTTPS ou localhost requis pour l’accès caméra. Sur fichier local <span class="warn">file://</span>, Safari/Chrome bloquent.</li>
+          <li>Si tu as refusé l’accès une première fois, il faut <b>réautoriser</b> (icône caméra dans la barre d’adresse) ou aller dans <b>Réglages &gt; Safari &gt; Caméra</b> (iOS).</li>
+          <li>La simulation suppose le même format d’image. Choisis l’aspect (16:9, 3:2, etc.) pour coller au rendu cible.</li>
+        </ul>
+      </div>
+
+      <!-- DIAGNOSTICS / TESTS -->
+      <div class="span-2 pad card">
+        <div class="muted" style="margin-bottom:8px;">Diagnostics (tests intégrés)</div>
+        <div class="diag" id="diag">
+          <div class="kv"><span>Sécurisé (HTTPS/localhost)</span><b id="tSecure">—</b></div>
+          <div class="kv"><span>API MediaDevices disponible</span><b id="tMD">—</b></div>
+          <div class="kv"><span>État permission caméra</span><b id="tPerm">—</b></div>
+          <div class="kv"><span>Caméras détectées</span><b id="tCams">—</b></div>
+          <div class="kv"><span>Navigateur</span><b id="tUA">—</b></div>
+          <div class="log" id="log"></div>
+          <div class="row">
+            <button class="btn" id="runDiag">Réexécuter les tests</button>
+            <button class="btn secondary" id="retry">Réessayer l’accès caméra</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Astuce : touche l’écran avec deux doigts pour basculer l’overlay (grille/rectangle).
+    </footer>
+  </div>
+
+  <script>
+    const $ = sel => document.querySelector(sel);
+    const frame = $('#frame');
+    const video = $('#video');
+    const rectWrap = $('#rectWrap');
+    const dim = $('#dim');
+    const simRect = $('#simRect');
+    const aspectSel = $('#aspect');
+    const startBtn = $('#start');
+    const stopBtn = $('#stop');
+    const baseEq = $('#baseEq');
+    const targetEq = $('#targetEq');
+    const targetEqNum = $('#targetEqNum');
+    const chips = $('#chips');
+    const fovBaseOut = $('#fovBase');
+    const fovTargetOut = $('#fovTarget');
+    const scaleOut = $('#scaleOut');
+
+    // Diagnostics nodes
+    const tSecure = $('#tSecure');
+    const tMD = $('#tMD');
+    const tPerm = $('#tPerm');
+    const tCams = $('#tCams');
+    const tUA = $('#tUA');
+    const logEl = $('#log');
+    const runDiagBtn = $('#runDiag');
+    const retryBtn = $('#retry');
+    const securePill = $('#securePill');
+
+    const COMMON_EQS = [14, 18, 20, 24, 28, 35, 40, 50, 58, 70, 85, 105, 135, 200];
+
+    // Build chips
+    COMMON_EQS.forEach(v => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = v + 'mm';
+      b.addEventListener('click', () => { targetEq.value = v; targetEqNum.value = v; updateSim(); });
+      chips.appendChild(b);
+    });
+
+    // Sync number <-> range
+    targetEq.addEventListener('input', () => { targetEqNum.value = targetEq.value; updateSim(); });
+    targetEqNum.addEventListener('input', () => {
+      const v = clamp(parseFloat(targetEqNum.value) || 0, parseFloat(targetEq.min), parseFloat(targetEq.max));
+      targetEq.value = v; updateSim();
+    });
+    baseEq.addEventListener('input', updateSim);
+
+    // Aspect handling
+    aspectSel.addEventListener('change', () => { applyAspect(); layoutVideoOverlay(); updateSim(); });
+
+    // Start/Stop camera on user gesture
+    startBtn.addEventListener('click', startCamera);
+    stopBtn.addEventListener('click', stopCamera);
+    retryBtn.addEventListener('click', startCamera);
+
+    runDiagBtn.addEventListener('click', runDiagnostics);
+
+    let stream;
+
+    // --- CAMERA START LOGIC with better error handling ---
+    async function startCamera(){
+      video.setAttribute('playsinline','');
+      video.muted = true;
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Caméra non prise en charge dans ce navigateur/WebView. Essaie Safari/Chrome à jour.");
+        notify('mediaDevices/getUserMedia non disponible.', 'bad');
+        return;
+      }
+
+      if (!isSecure()) {
+        notify('Contexte non sécurisé : utilise HTTPS ou localhost.', 'bad');
+        alert('Accès caméra bloqué car la page n\'est pas en HTTPS. Héberge via GitHub Pages (https) ou utilise localhost.');
+        updateSecurePill();
+        return;
+      }
+      try {
+        // stop any prior stream
+        if (stream) { stream.getTracks().forEach(t => t.stop()); }
+
+        const constraintsList = [
+          { video: { facingMode: { exact: 'environment' } }, audio: false },
+          { video: { facingMode: 'environment' }, audio: false },
+          { video: true, audio: false }
+        ];
+
+        let lastErr = null;
+        for (const c of constraintsList) {
+          try {
+            notify('Tentative getUserMedia avec contraintes: ' + json(c));
+            stream = await navigator.mediaDevices.getUserMedia(c);
+            break; // success
+          } catch (e) {
+            lastErr = e;
+            notify('Échec tentative: ' + e.name + ' – ' + e.message, 'bad');
+          }
+        }
+        if (!stream) throw lastErr || new Error('Impossible d\'obtenir le flux caméra');
+
+        video.srcObject = stream;
+        await video.play();
+        await waitForMetadata();
+        applyAspect();
+        layoutVideoOverlay();
+        updateSim();
+
+        startBtn.textContent = 'Caméra activée';
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+
+        notify('Caméra démarrée ✅', 'ok');
+        runDiagnostics(false); // refresh cam count/perm state
+      } catch (err) {
+        console.error(err);
+        handleCameraError(err);
+      }
+    }
+
+    function stopCamera(){
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+        notify('Caméra stoppée.');
+      }
+      video.pause();
+      video.srcObject = null;
+      startBtn.textContent = 'Activer la caméra';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+
+    function waitForMetadata(){
+      return new Promise(res => {
+        if (video.readyState >= 1 && video.videoWidth) return res();
+        video.onloadedmetadata = () => res();
+      });
+    }
+
+    function applyAspect(){
+      const vW = video.videoWidth || 16; const vH = video.videoHeight || 9;
+      const opt = aspectSel.value;
+      let ratio;
+      if (opt === 'video') { ratio = vW / vH; }
+      else {
+        const [a,b] = opt.split('/').map(Number);
+        ratio = a / b;
+      }
+      frame.style.aspectRatio = ratio.toString();
+      video.style.objectFit = 'contain'; // avoid crop distortion; rectangle aligns via rectWrap sizing
+    }
+
+    // Size the rectWrap to the displayed video area (handles letter/pillar-boxing)
+    function layoutVideoOverlay(){
+      const frameRect = frame.getBoundingClientRect();
+      const fw = frameRect.width, fh = frameRect.height;
+      const vW = video.videoWidth || 16; const vH = video.videoHeight || 9;
+      const vAsp = vW / vH;
+      let dispW = fw, dispH = fw / vAsp;
+      if (dispH > fh) { // too tall, fit height instead
+        dispH = fh; dispW = fh * vAsp;
+      }
+      rectWrap.style.width = dispW + 'px';
+      rectWrap.style.height = dispH + 'px';
+    }
+
+    // Compute FOV for a given 35mm-equivalent focal length and chosen aspect ratio
+    function fovFor(fEq){
+      // Base 35mm frame is 36x24mm (3:2). For custom aspect, we crop to fit within 36x24.
+      const asp = (function(){
+        const opt = aspectSel.value;
+        if (opt === 'video') {
+          const vW = video.videoWidth || 16; const vH = video.videoHeight || 9; return vW / vH;
+        }
+        const [a,b] = opt.split('/').map(Number); return a/b;
+      })();
+      let W = 36, H = 24; // 35mm full-frame bounds
+      if (W / H > asp) { W = H * asp; } else { H = W / asp; }
+      const toDeg = r => (r * 180 / Math.PI);
+      const fovH = 2 * Math.atan(W / (2 * fEq));
+      const fovV = 2 * Math.atan(H / (2 * fEq));
+      return { h: toDeg(fovH), v: toDeg(fovV) };
+    }
+
+    function updateSim(){
+      const base = parseFloat(baseEq.value) || 24;
+      const target = parseFloat(targetEq.value) || 35;
+      const scale = clamp(base / target, 0.05, 8);
+      simRect.style.transform = `translate(-50%,-50%) scale(${scale})`;
+      scaleOut.textContent = scale.toFixed(2) + '×';
+      const fb = fovFor(base); const ft = fovFor(target);
+      fovBaseOut.textContent = `${fb.h.toFixed(1)}° × ${fb.v.toFixed(1)}°`;
+      fovTargetOut.textContent = `${ft.h.toFixed(1)}° × ${ft.v.toFixed(1)}°`;
+
+      // update dim outside-hole size based on scaled rectangle within rectWrap
+      const frameRect = frame.getBoundingClientRect();
+      const fw = frameRect.width, fh = frameRect.height;
+      const rw = rectWrap.getBoundingClientRect().width;
+      const rh = rectWrap.getBoundingClientRect().height;
+      const holeW = clamp(rw * scale, 0, fw);
+      const holeH = clamp(rh * scale, 0, fh);
+      dim.style.setProperty('--w', (holeW / fw * 100).toFixed(4) + '%');
+      dim.style.setProperty('--h', (holeH / fh * 100).toFixed(4) + '%');
+    }
+
+    function clamp(v, lo, hi){ return Math.min(Math.max(v, lo), hi); }
+
+    // Two-finger tap toggles overlays
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        const g = document.getElementById('grid');
+        const visible = getComputedStyle(g).display !== 'none';
+        g.style.display = visible ? 'none' : 'block';
+        // rectangle and dim remain
+      }
+    }, { passive: true });
+
+    // Recompute on resize / rotate
+    window.addEventListener('resize', () => { applyAspect(); layoutVideoOverlay(); updateSim(); });
+
+    // Stop camera when tab hidden / page unloading (battery/heat)
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); });
+    window.addEventListener('pagehide', stopCamera);
+
+    // --- DIAGNOSTICS / TESTS ---
+    async function runDiagnostics(log = true){
+      try {
+        setKV(tSecure, isSecure());
+        setKV(tMD, !!navigator.mediaDevices);
+        const perm = await getPermissionState();
+        setKV(tPerm, perm || 'inconnu');
+        const camCount = await countCameras();
+        setKV(tCams, camCount >= 0 ? String(camCount) : '—');
+        tUA.textContent = navigator.userAgent;
+        if (log) notify('Diagnostics exécutés.');
+      } catch(e){
+        notify('Erreur diagnostics: ' + e.message, 'bad');
+      }
+      updateSecurePill();
+    }
+
+    function setKV(node, val){
+      const ok = (val === true || val === 'granted' || (typeof val === 'number' && val > 0));
+      node.textContent = typeof val === 'boolean' ? (val? 'OK' : 'NON') : val;
+      node.className = ok ? 'ok' : 'bad';
+    }
+
+    function isSecure(){
+      return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    }
+
+    async function getPermissionState(){
+      try {
+        if (!navigator.permissions || !navigator.permissions.query) return 'non pris en charge';
+        const p = await navigator.permissions.query({ name: 'camera' });
+        return p.state; // 'granted' | 'denied' | 'prompt'
+      } catch(e){
+        return 'inconnu';
+      }
+    }
+
+    async function countCameras(){
+      try {
+        if (!navigator.mediaDevices?.enumerateDevices) return -1;
+        const list = await navigator.mediaDevices.enumerateDevices();
+        const cams = list.filter(d => d.kind === 'videoinput');
+        // iOS peut retourner 0 avant un premier getUserMedia: on tolère.
+        return cams.length;
+      } catch(e){ return -1; }
+    }
+
+    function handleCameraError(err){
+      const name = err?.name || 'Erreur';
+      const msg = err?.message || String(err);
+      notify(`getUserMedia a échoué: ${name} – ${msg}`, 'bad');
+
+      let hint = '';
+      if (!isSecure()) {
+        hint = 'La page n\'est pas en HTTPS. Héberge via GitHub Pages (https) ou utilise localhost.';
+      } else if (name === 'NotAllowedError' || /Permission denied/i.test(msg)) {
+        hint = 'Permission refusée. Si tu as cliqué « Ne pas autoriser », re-clique sur l\'icône caméra dans la barre d\'adresse et autorise l\'appareil photo. Sur iOS : Réglages → Safari → Caméra → Autoriser.';
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        hint = 'Aucune caméra détectée ou contrainte trop stricte. Essaie un autre ensemble de contraintes (bouton Réessayer) ou redémarre le navigateur.';
+      } else if (name === 'SecurityError') {
+        hint = 'Contexte non sécurisé ou politique de site. Vérifie HTTPS et évite les iframes sans allow="camera".';
+      }
+      if (hint) alert(hint);
+    }
+
+    function updateSecurePill(){
+      securePill.textContent = isSecure() ? 'Contexte sécurisé' : 'Non sécurisé (HTTPS requis)';
+      securePill.style.color = isSecure() ? 'var(--ok)' : 'var(--warning)';
+    }
+
+    // Bounded, batched logs
+    let logBuffer = [];
+    let logRAF = null;
+    function notify(s, cls){
+      const time = new Date().toLocaleTimeString();
+      const line = `[${time}] ${s}`;
+      logBuffer.push({ line, cls });
+      if (!logRAF) logRAF = requestAnimationFrame(flushLogs);
+      console.log(line);
+    }
+    function flushLogs(){
+      logRAF = null;
+      for (const { line, cls } of logBuffer) {
+        const el = document.createElement('div');
+        el.textContent = line;
+        if (cls === 'ok') el.classList.add('ok');
+        if (cls === 'bad') el.classList.add('bad');
+        logEl.appendChild(el);
+      }
+      logBuffer = [];
+      // cap to last 200 entries
+      while (logEl.childNodes.length > 200) {
+        logEl.removeChild(logEl.firstChild);
+      }
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function json(o){ try { return JSON.stringify(o); } catch{ return String(o); } }
+
+    // Kick initial UI
+    updateSecurePill();
+    applyAspect();
+    layoutVideoOverlay();
+    updateSim();
+    runDiagnostics(false);
+  </script>
+</body>
+</html>
